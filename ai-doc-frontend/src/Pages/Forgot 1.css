@@ -1,0 +1,49 @@
+.forgot-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: transparent;
+  overflow-x: hidden;
+}
+
+.forgot-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 2.25rem;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+.forgot-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #0f1720;
+}
+
+.forgot-desc {
+  margin: 0 0 1.25rem 0;
+  color: #556b86;
+}
+
+.forgot-form .label { display:block; margin-bottom:0.25rem; }
+
+.forgot-actions { display:flex; align-items:center; gap:1rem; margin-top:1rem; }
+.forgot-actions .back-link { color:#556b86; text-decoration:none; transform: translateX(40px); margin-top: 10px;}
+.forgot-actions .back-link:hover { text-decoration:underline; }
+
+.forgot-form .input { margin-bottom: 0.25rem; }
+
+/* reduce the vertical gap for the forgot form specifically (overrides .login-form gap) */
+.forgot-form.login-form { gap: 0.35rem; }
+.error {
+  margin-top: 0.5rem;
+  color: #a33;
+  background: #ffecec;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}

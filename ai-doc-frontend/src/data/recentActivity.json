@@ -1,0 +1,26 @@
+[
+    {
+        "id": 1,
+        "filename": "Contract_v2.pdf",
+        "timestamp": "2 hours ago",
+        "project": "Project Alpha",
+        "status": "Verified",
+        "thumbnail": "https://images.pexels.com/photos/7735637/pexels-photo-7735637.jpeg?auto=compress&cs=tinysrgb&w=1500"
+    },
+    {
+        "id": 2,
+        "filename": "Financial_Report_Q3.pdf",
+        "timestamp": "5 hours ago",
+        "project": "Finance Dept",
+        "status": "Pending",
+        "thumbnail": "https://images.pexels.com/photos/7652037/pexels-photo-7652037.jpeg?auto=compress&cs=tinysrgb&w=1500"
+    },
+    {
+        "id": 3,
+        "filename": "Design_Specs.jpg",
+        "timestamp": "1 day ago",
+        "project": "UX Team",
+        "status": "Verified",
+        "thumbnail": "https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?auto=compress&cs=tinysrgb&w=1500"
+    }
+]
