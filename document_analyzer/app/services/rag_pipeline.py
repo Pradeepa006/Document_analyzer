@@ -29,8 +29,8 @@ class RAGPipeline:
         chroma_persist_dir: str = "./chroma_db",
         chunk_size: int = 800,
         chunk_overlap: int = 150,
-        top_k: int = 8,
-        max_context_chars: int = 8000,
+        top_k: int = 10,
+        max_context_chars: int = 30000,
     ):
         self.embedding_service = embedding_service
         self.llm_service = llm_service
@@ -66,7 +66,6 @@ class RAGPipeline:
                 "uploaded_at": datetime.utcnow().isoformat(),
                 "num_chunks": len(chunks),
                 "chunks": chunks,
-                # FIX: also store full raw text for analytical queries
                 "full_text": text,
             }
             return len(chunks)
@@ -132,7 +131,7 @@ class RAGPipeline:
             if not doc:
                 raise HTTPException(status_code=404, detail="Document not found.")
             all_chunks = doc.get("chunks", [])
-            retrieved_docs = all_chunks          # always use all chunks
+            retrieved_docs = all_chunks
             retrieved_metas = [{"chunk_index": i} for i in range(len(all_chunks))]
             retrieved_distances = [0.0] * len(all_chunks)
 
@@ -143,26 +142,27 @@ class RAGPipeline:
                 raise HTTPException(status_code=404, detail="Document not found.")
 
             total_chunks = collection.count()
+            logger.info("Document '%s' has %d total chunks", document_id, total_chunks)
 
             if analytical:
-                # KEY FIX: Analytical questions need the FULL document context.
-                # Semantic search retrieves only chunks similar to the question text,
-                # which is wrong for reasoning — e.g. "Is he a good student?" matches
-                # career objective but misses education/CGPA chunks entirely.
-                # Solution: fetch ALL chunks so Gemini has complete information.
+                # FIX #3: ChromaDB 0.5.x collection.get() silently caps at 10 results
+                # when no limit is given. Must pass limit=total_chunks explicitly
+                # to retrieve ALL chunks for analytical/reasoning questions.
                 logger.info(
-                    "Analytical question detected — fetching ALL %d chunks for full context",
-                    total_chunks
+                    "Analytical question — fetching ALL %d chunks for full context",
+                    total_chunks,
                 )
                 all_results = collection.get(
                     include=["documents", "metadatas"],
-                    limit=total_chunks,
+                    limit=total_chunks,      # ← critical fix: was missing, defaulted to 10
+                    offset=0,
                 )
                 retrieved_docs = all_results["documents"]
                 retrieved_metas = all_results["metadatas"]
                 retrieved_distances = [0.0] * len(retrieved_docs)
+                logger.info("Retrieved %d chunks for analytical query", len(retrieved_docs))
             else:
-                # Factual questions: normal semantic search — fast and precise
+                # Factual questions: normal semantic search
                 query_embedding = self.embedding_service.embed_query(question)
                 results = collection.query(
                     query_embeddings=[query_embedding],
@@ -181,6 +181,13 @@ class RAGPipeline:
                 sources=[],
                 model_used=getattr(self.llm_service, "model", "unknown"),
             )
+
+        logger.info(
+            "Sending %d chunks (%d chars total) to LLM for question='%s'",
+            len(retrieved_docs),
+            sum(len(c) for c in retrieved_docs),
+            question[:80],
+        )
 
         # ── 2. Build source chunks for response ─────────────────────────
         source_chunks = [

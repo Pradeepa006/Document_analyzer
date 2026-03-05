@@ -25,8 +25,12 @@ class Settings(BaseSettings):
     # RAG settings
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 150
-    TOP_K_CHUNKS: int = 5
-    MAX_CONTEXT_TOKENS: int = 3000  # characters approximation
+    TOP_K_CHUNKS: int = 10          # FIX #2: increased from 5 → 10 for better factual coverage
+
+    # FIX #1: was 3000 — far too small for real documents.
+    # A single-page resume is ~4,000–6,000 chars; a multi-page PDF is 20,000+.
+    # Gemini 1.5 Flash supports ~1M token context, so 30,000 chars is safe and fast.
+    MAX_CONTEXT_TOKENS: int = 30000
 
     # Vector DB path (ChromaDB persistent storage)
     CHROMA_PERSIST_DIR: str = "./chroma_db"
