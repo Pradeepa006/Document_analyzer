@@ -38,6 +38,7 @@ class RAGPipeline:
         self.chunk_overlap = chunk_overlap
         self.top_k = top_k
         self.max_context_chars = max_context_chars
+        self._fallback_store: Dict[str, Any] = {}
 
         try:
             import chromadb
@@ -49,7 +50,6 @@ class RAGPipeline:
             logger.info("ChromaDB initialized at: %s", chroma_persist_dir)
         except Exception:
             self.chroma_client = None
-            self._fallback_store: Dict[str, Any] = {}
             logger.warning("ChromaDB not available — using in-memory fallback store.")
 
     # ──────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ class RAGPipeline:
         for start in range(0, len(chunks), batch_size):
             end = min(start + batch_size, len(chunks))
             collection.add(
-                ids=[f"{document_id}_{i}" for i in range(start, end)],
+                ids=[f"{document_id}_{i:05d}" for i in range(start, end)],
                 embeddings=embeddings[start:end],
                 documents=chunks[start:end],
                 metadatas=[{"chunk_index": i, "filename": filename} for i in range(start, end)],
@@ -154,13 +154,20 @@ class RAGPipeline:
                 )
                 all_results = collection.get(
                     include=["documents", "metadatas"],
-                    limit=total_chunks,      # ← critical fix: was missing, defaulted to 10
+                    limit=total_chunks,
                     offset=0,
                 )
-                retrieved_docs = all_results["documents"]
-                retrieved_metas = all_results["metadatas"]
+                
+                # Sort by chunk_index to maintain document flow
+                docs_with_meta = sorted(
+                    zip(all_results["documents"], all_results["metadatas"]),
+                    key=lambda x: x[1].get("chunk_index", 0)
+                )
+                
+                retrieved_docs = [d for d, m in docs_with_meta]
+                retrieved_metas = [m for d, m in docs_with_meta]
                 retrieved_distances = [0.0] * len(retrieved_docs)
-                logger.info("Retrieved %d chunks for analytical query", len(retrieved_docs))
+                logger.info("Retrieved and sorted %d chunks for analytical query", len(retrieved_docs))
             else:
                 # Factual questions: normal semantic search
                 query_embedding = self.embedding_service.embed_query(question)
@@ -224,6 +231,7 @@ class RAGPipeline:
             model_used=getattr(self.llm_service, "model", "unknown"),
         )
 
+
     # ──────────────────────────────────────────────────────────────────
     # Helpers
     # ──────────────────────────────────────────────────────────────────
@@ -232,25 +240,22 @@ class RAGPipeline:
     def _is_analytical(question: str) -> bool:
         """
         Mirror of LLMService._is_analytical — used to decide retrieval strategy.
-        Analytical → fetch all chunks.
-        Factual → semantic search top-k.
+        Analytical → fetch all chunks (for summary/overview).
+        Factual → semantic search top-k (for specific 'what is/how to' questions).
         """
         q = question.lower().strip()
 
-        # Pure factual patterns — semantic search is fine
-        factual_patterns = [
-            r"^what is his (name|email|phone|cgpa|gpa|location|address|city|degree|branch)[\s?]*$",
-            r"^what is her (name|email|phone|cgpa|gpa|location|address|city|degree|branch)[\s?]*$",
-            r"^(his|her) (name|email|phone|cgpa|gpa|location|address)[\s?]*$",
-            r"^list (his|her|the) (skills?|projects?|achievements?|certifications?)[\s?]*$",
-            r"^what are (his|her|the) (skills?|projects?|achievements?)[\s?]*$",
-            r"^(cgpa|gpa|email|phone|location|name)[\s?]*$",
+        # Triggers for full document context (Analytical)
+        analytical_triggers = [
+            "summarize", "summary", "overview", "overall", "analyze", 
+            "comprehensive", "full detail", "everything about", "background"
         ]
-        for pattern in factual_patterns:
-            if re.match(pattern, q):
-                return False
+        if any(t in q for t in analytical_triggers):
+            return True
 
-        return True  # Default: analytical → fetch all chunks
+        # Default to Factual (Semantic Search) for specific questions
+        # This includes "What is Newton's Law", "How does X work", etc.
+        return False
 
     @staticmethod
     def _extractive_fallback(chunks: List[str], question: str) -> str:
@@ -258,15 +263,28 @@ class RAGPipeline:
         text = " ".join(c.strip() for c in chunks if c.strip())
         if not text:
             return "Could not find relevant content in the document."
-        q_words = set(re.findall(r"\w+", question.lower()))
+        
+        q_lower = question.lower()
+        if "summarize" in q_lower or "summary" in q_lower:
+            return "Summary attempt (extractive): " + text[:600] + "..."
+
+        q_words = set(re.findall(r"\w+", q_lower))
         sentences = re.split(r"(?<=[.!?])\s+", text)
         scored = []
         for s in sentences:
             s_words = set(re.findall(r"\w+", s.lower()))
-            score = len(q_words & s_words) / max(len(s_words), 1)
+            # Jaccard-like overlap
+            overlap = len(q_words & s_words)
+            score = overlap / max(len(s_words), 1)
             scored.append((score, s))
-        scored.sort(reverse=True)
-        return " ".join(s for _, s in scored[:3]).strip() or text[:500]
+        
+        scored.sort(key=lambda x: x[0], reverse=True)
+        # Filter out zero scores if possible
+        best = [s for sc, s in scored if sc > 0]
+        if not best:
+             return "Extractive fallback: " + text[:500]
+             
+        return " ".join(best[:3]).strip()
 
     # ──────────────────────────────────────────────────────────────────
     # Utility methods

@@ -42,47 +42,46 @@ const Home = (props) => {
   };
 
   const handleFile = (selectedFile) => {
-    if (selectedFile.type === "application/pdf" || selectedFile.type.startsWith("image/")) {
+    if (selectedFile.type === "application/pdf" || selectedFile.type === "text/plain" || selectedFile.type.startsWith("image/")) {
       setFile(selectedFile);
     } else {
-      alert("Please upload a PDF or image file.");
+      alert("Please upload a PDF, TXT or image file.");
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
+    setProgress(30);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          completeUpload();
-          return 100;
-        }
-        return prev + 10;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('http://127.0.0.1:8000/api/v1/upload', {
+        method: 'POST',
+        body: formData,
       });
-    }, 100);
-  };
 
-  const completeUpload = () => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const fileData = {
-        name: file.name,
-        type: file.type,
-        content: e.target.result, // Base64 content
-        timestamp: new Date().toISOString()
-      };
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Upload failed');
+      }
+
+      const result = await res.json();
+      setProgress(100);
 
       // Save to localStorage as a new chat session
       const chatId = Date.now().toString();
       const newChat = {
         id: chatId,
         title: file.name,
-        messages: [],
-        file: fileData,
+        messages: [{
+          text: `✅ **${file.name}** uploaded and indexed (${result.num_chunks} chunks). You can now ask questions about it.`,
+          isUser: false,
+          isSystem: true,
+        }],
+        file: { name: file.name, documentId: result.document_id },
         createdAt: new Date().toISOString()
       };
 
@@ -92,8 +91,11 @@ const Home = (props) => {
 
       setUploading(false);
       navigate('/chat');
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      alert("Failed to upload document: " + error.message);
+      setUploading(false);
+      setProgress(0);
+    }
   };
 
   const onButtonClick = () => {
@@ -117,7 +119,7 @@ const Home = (props) => {
             <div className="hero-upload-header">
               <h1 className="home-hero-title hero-title">Upload Document</h1>
               <p className="hero-subtitle">
-                Upload PDF or image files for verification
+                Upload PDF, TXT or image files for verification
               </p>
             </div>
 
@@ -154,7 +156,7 @@ const Home = (props) => {
                   ref={fileInputRef}
                   type="file"
                   id="file-input"
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  accept=".pdf,.jpg,.jpeg,.png,.txt"
                   onChange={handleChange}
                   style={{ display: 'none' }}
                 />
@@ -163,7 +165,7 @@ const Home = (props) => {
 
             <div className="hero-upload-helper">
               <p className="section-content">
-                Only PDF and image files are allowed
+                Only PDF, TXT and image files are allowed
               </p>
             </div>
 

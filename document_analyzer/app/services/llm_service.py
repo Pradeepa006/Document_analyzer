@@ -48,7 +48,7 @@ class LLMService:
         if analytical:
             logger.info("REASONING prompt → '%s'", question[:80])
             prompt = self._build_reasoning_prompt(question, context)
-            return await self._call_gemini(prompt, temperature=0.2, max_tokens=1024)
+            return await self._call_gemini(prompt, temperature=0.0, max_tokens=1024)
         else:
             logger.info("EXTRACTION prompt → '%s'", question[:80])
             prompt = self._build_extraction_prompt(question, context)
@@ -60,15 +60,8 @@ class LLMService:
 
     @staticmethod
     def _merge_chunks(chunks: List[str], max_chars: int) -> str:
-        seen: set = set()
-        lines: List[str] = []
-        for chunk in chunks:
-            for line in chunk.splitlines():
-                line = line.strip()
-                if line and line not in seen:
-                    seen.add(line)
-                    lines.append(line)
-        full = "\n".join(lines)
+        """Joins chunks into a single clean string for the LLM."""
+        full = "\n\n".join(c.strip() for c in chunks if c.strip())
         return full[:max_chars] if len(full) > max_chars else full
 
     # ------------------------------------------------------------------
@@ -173,19 +166,13 @@ class LLMService:
 
     @staticmethod
     def _is_analytical(question: str) -> bool:
+        """Determines if a question needs full document context (True) or semantic retrieval (False)."""
         q = question.lower().strip()
-        factual_only = [
-            r"^what is his (name|email|phone|cgpa|gpa|location|city|degree)[\s?]*$",
-            r"^what is her (name|email|phone|cgpa|gpa|location|city|degree)[\s?]*$",
-            r"^(his|her) (name|email|phone|cgpa|gpa|location)[\s?]*$",
-            r"^list (his|her|the) (skills?|projects?)[\s?]*$",
-            r"^what are (his|her) (skills?|projects?)[\s?]*$",
-            r"^(cgpa|gpa|email|phone|name)[\s?]*$",
+        analytical_triggers = [
+            "summarize", "summary", "overview", "overall", "analyze", 
+            "comprehensive", "full detail", "everything about", "background"
         ]
-        for p in factual_only:
-            if re.match(p, q):
-                return False
-        return True  # Everything else → reasoning
+        return any(t in q for t in analytical_triggers)
 
     # ------------------------------------------------------------------
     # Prompts
@@ -193,56 +180,160 @@ class LLMService:
 
     @staticmethod
     def _build_extraction_prompt(question: str, context: str) -> str:
-        return f"""You are a precise document extraction assistant.
+        return f"""You are an advanced Document Extraction AI designed to retrieve precise information from study documents.
 
-DOCUMENT:
+Your job is to locate and extract the exact information required to answer the user's question.
+
+---------------------
+DOCUMENT CONTENT
+---------------------
 {context}
 
-QUESTION: {question}
+---------------------
+USER QUESTION
+---------------------
+{question}
 
-Return ONLY the specific value. No extra text.
-- Single value (name/CGPA/email): just the value. e.g. "8.7/10"
-- List: clean bullet points.
-- Not found: "Not mentioned in the document."
+---------------------
+INSTRUCTIONS
+---------------------
+1. Read the document carefully before answering.
+2. Locate the exact section containing the answer.
+3. Extract ONLY the relevant value or list.
+4. Do NOT explain unless the question explicitly asks for explanation.
+5. Do NOT generate information that is not present in the document.
 
-ANSWER:"""
+---------------------
+OUTPUT RULES
+---------------------
+• Single value (CGPA, name, date, formula, definition):
+Return ONLY the value.
+
+Example:
+8.7/10
+
+• Multiple values:
+Return clean bullet points.
+
+Example:
+- Item 1
+- Item 2
+- Item 3
+
+• If the information does not exist in the document:
+Return exactly:
+Not mentioned in the document.
+
+• Do NOT include:
+- extra explanations
+- introductions
+- reasoning
+- commentary
+
+---------------------
+ANSWER
+---------------------
+"""
 
     @staticmethod
     def _build_reasoning_prompt(question: str, context: str) -> str:
-        return f"""You are an intelligent document assistant. Think like ChatGPT.
+        return f"""You are an expert Academic Document Intelligence AI designed to help students understand study materials.
 
-Read the full document below carefully, then answer the question by reasoning from the facts.
-NEVER paste raw document text. Always synthesize a proper human answer.
+Your responsibility is to analyze the document and answer the user's question using ONLY the information from the document.
 
-DOCUMENT:
+------------------------------------------------
+SOURCE DOCUMENT
+------------------------------------------------
 {context}
 
-QUESTION: {question}
+------------------------------------------------
+USER QUESTION
+------------------------------------------------
+{question}
 
-HOW TO ANSWER — follow these examples:
+------------------------------------------------
+CRITICAL RULES
+------------------------------------------------
 
-Q: "Is he a good student?"
-✗ WRONG: "Career Objective Motivated Computer Science student seeking internship..."
-✓ RIGHT: "Yes, Arun is a strong student. He has a CGPA of 8.7/10 at XYZ Engineering College, which reflects excellent academic performance."
+1. DOCUMENT GROUNDED ANSWERS
+- Use ONLY information present in the document.
+- Do NOT add outside knowledge.
+- Do NOT guess missing information.
 
-Q: "Top 1 job role he suits the most?"
-✗ WRONG: "opportunity to apply knowledge in Full Stack Development AI and Data Structures..."
-✓ RIGHT: "The role Arun suits best is Full Stack Developer. He has skills in React.js, Spring Boot, FastAPI, MySQL, and MongoDB — covering both frontend and backend — along with a strong CGPA of 8.7/10."
+2. QUESTION UNDERSTANDING
+- Identify exactly what the user is asking.
+- Determine whether the question is asking for:
+  • Definition
+  • Explanation
+  • Formula
+  • Example
+  • Comparison
+  • Summary
+  • Specific extracted value
 
-Q: "Job opportunity for him?"
-✓ RIGHT: "Arun is well-suited for Full Stack Developer or Junior Software Engineer roles at tech companies. His skill set in React.js, Spring Boot, FastAPI, and databases, combined with his 8.7 CGPA, make him a competitive entry-level candidate."
+3. SUBJECT LOCKING
+- If the question asks about a specific concept, law, section, or topic,
+  respond ONLY about that exact subject.
 
-Q: "Summarize this document"
-✓ RIGHT: "This is the resume of Arun Kumar, a B.E. Computer Science student (2023–2027) at XYZ Engineering College with a CGPA of 8.7/10. He is skilled in Full Stack Development (React.js, Spring Boot, FastAPI), databases (MySQL, MongoDB), and tools like Git and Docker. He is seeking an internship in Full Stack Development or AI."
+Example:
+If asked about "Newton's First Law",
+do NOT include Second or Third Law.
 
-ABSOLUTE RULES:
-1. NEVER copy raw document lines as your answer.
-2. YES/NO questions → answer word + 1-2 sentences of evidence.
-3. Role/job questions → name the specific role + justify with skills from the doc.
-4. Keep it under 6 sentences. Be concise and helpful.
-5. Only say "not found" if truly zero relevant info exists.
+4. STRUCTURAL ACCURACY
+Documents may contain repeated labels like:
+- Statement
+- Definition
+- Explanation
+- Example
+- Proof
 
-ANSWER:"""
+Ensure the content you extract belongs to the correct section.
+
+5. LARGE DOCUMENT HANDLING
+If the document is long:
+- Identify the most relevant section
+- Ignore unrelated sections
+- Focus on answering the question directly
+
+6. ANSWER QUALITY
+Your answer must be:
+- Accurate
+- Clear
+- Structured
+- Student friendly
+
+7. FORMAT
+Structure responses like this when applicable:
+
+**Concept / Title**
+
+Short explanation.
+
+Key Points:
+• Point 1
+• Point 2
+• Point 3
+
+Example (if present in document):
+Explain briefly.
+
+Formula (if present):
+Write clearly.
+
+8. MULTIPLE QUESTIONS
+If the user asks multiple questions:
+Answer each separately.
+
+9. NOT FOUND RULE
+If the document does NOT contain the answer, reply exactly:
+
+"The provided document does not contain enough information to answer this question."
+
+------------------------------------------------
+FINAL ANSWER
+------------------------------------------------
+"""
+
 
     # ------------------------------------------------------------------
     # Gemini API call

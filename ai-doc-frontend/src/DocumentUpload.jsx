@@ -9,7 +9,7 @@ function DocumentUpload() {
     const fileInputRef = useRef(null);
 
     const validateFile = (file) => {
-        const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'text/plain'];
         return validTypes.includes(file.type);
     };
 
@@ -22,7 +22,7 @@ function DocumentUpload() {
                 setSuccess(false);
             } else {
                 setSelectedFile(null);
-                setError('Invalid file type. Only PDF and image files are allowed.');
+                setError('Invalid file type. Only PDF, Image and TXT files are allowed.');
             }
         }
     };

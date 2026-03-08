@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     """
     settings = get_settings()
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"GEMINI_API_KEY detected: {bool(settings.GEMINI_API_KEY)}")
 
     # 1. Create upload directory
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)

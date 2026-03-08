@@ -158,34 +158,48 @@ class DocumentProcessor:
 
         pages_text = []
 
-        with pdfplumber.open(file_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, 1):
-                # Extract with layout preservation
-                text = page.extract_text(
-                    x_tolerance=2,
-                    y_tolerance=2,
-                    layout=True,              # preserves spatial layout
-                    x_density=7.25,
-                    y_density=13,
-                )
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                for page_num, page in enumerate(pdf.pages, 1):
+                    # Extract with layout preservation
+                    text = page.extract_text(
+                        x_tolerance=2,
+                        y_tolerance=2,
+                        layout=True,              # preserves spatial layout
+                        x_density=7.25,
+                        y_density=13,
+                    )
 
-                if text and text.strip():
-                    pages_text.append(text.strip())
-                else:
-                    # Page has no selectable text → try OCR on this page
-                    logger.info("Page %d has no text layer — attempting OCR", page_num)
-                    ocr_text = self._ocr_pdf_page(page)
-                    if ocr_text:
-                        pages_text.append(ocr_text.strip())
+                    if text and text.strip():
+                        pages_text.append(text.strip())
+                    else:
+                        # Page has no selectable text → try OCR on this page
+                        logger.info("Page %d has no text layer — attempting OCR", page_num)
+                        ocr_text = self._ocr_pdf_page(page)
+                        if ocr_text:
+                            pages_text.append(ocr_text.strip())
 
-        full_text = "\n\n".join(pages_text)
+            full_text = "\n\n".join(pages_text)
 
-        if not full_text.strip():
-            # Entire PDF is image-based — OCR the whole file
-            logger.info("PDF appears to be fully image-based, running full OCR")
-            full_text = self._extract_image(file_path)
+            if not full_text.strip():
+                # Entire PDF is image-based — OCR the whole file
+                logger.info("PDF appears to be fully image-based, running full OCR")
+                full_text = self._extract_image(file_path)
 
-        return full_text
+            return full_text
+            
+        except Exception as e:
+            # pdfplumber/pdfminer will raise PDFSyntaxError if the file is not a valid PDF.
+            logger.warning("PDF parsing failed (%r). Attempting fallback to TXT.", e)
+            try:
+                fallback_text = self._extract_txt(file_path)
+                if fallback_text and fallback_text.strip():
+                    return fallback_text
+            except Exception as txt_err:
+                logger.warning("Fallback TXT extraction also failed: %s", txt_err)
+
+            # If we reach here, it's totally unreadable
+            raise ValueError("The uploaded file could not be parsed as a PDF or text file. It may be corrupted.")
 
     def _ocr_pdf_page(self, page) -> str:
         """OCR a single pdfplumber page object."""
