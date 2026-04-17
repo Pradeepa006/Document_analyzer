@@ -1,26 +1,16 @@
 import React from 'react'
 
-import Script from 'dangerous-html/react'
-
 import './footer.css'
 
-const Footer = (props) => {
+const Footer = () => {
   return (
     <div className="footer-container1">
       <div className="footer-container2">
         <div className="footer-container3">
-          <Script
-            html={`<style>
-@media (prefers-reduced-motion: reduce) {
-.footer-status-dot {
-  animation: none;
-}
-.footer-social-btn, .footer-link {
-  transition: none;
-}
-}
-</style>`}
-          ></Script>
+          <style>{`@media (prefers-reduced-motion: reduce) {
+.footer-status-dot { animation: none; }
+.footer-social-btn, .footer-link { transition: none; }
+}`}</style>
         </div>
       </div>
       <footer className="footer-section">
@@ -33,7 +23,7 @@ const Footer = (props) => {
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
                     height="24"
-                    viewbox="0 0 24 24"
+                    viewBox="0 0 24 24"
                   >
                     <g
                       fill="none"
@@ -59,7 +49,7 @@ const Footer = (props) => {
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
                       height="20"
-                      viewbox="0 0 24 24"
+                      viewBox="0 0 24 24"
                     >
                       <g
                         fill="none"
@@ -80,7 +70,7 @@ const Footer = (props) => {
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
                       height="20"
-                      viewbox="0 0 24 24"
+                      viewBox="0 0 24 24"
                     >
                       <path
                         fill="none"
@@ -99,7 +89,7 @@ const Footer = (props) => {
                       xmlns="http://www.w3.org/2000/svg"
                       width="20"
                       height="20"
-                      viewbox="0 0 24 24"
+                      viewBox="0 0 24 24"
                     >
                       <g
                         fill="none"
@@ -202,43 +192,6 @@ const Footer = (props) => {
           </div>
         </div>
       </footer>
-      <div className="footer-container4">
-        <div className="footer-container5">
-          <Script
-            html={`<style>
-        @keyframes pulse-status {0% {transform: scale(1);
-opacity: 1;}
-50% {transform: scale(1.2);
-opacity: 0.7;}
-100% {transform: scale(1);
-opacity: 1;}}
-        </style> `}
-          ></Script>
-        </div>
-      </div>
-      <div className="footer-container6">
-        <div className="footer-container7">
-          <Script
-            html={`<script defer data-name="footer-status-check">
-(function(){
-  // Minimal logic to simulate real-time status check updates
-  const statusText = document.querySelector(".footer-status-text")
-  const statusDot = document.querySelector(".footer-status-dot")
-
-  if (statusText && statusDot) {
-    const checkStatus = () => {
-      // Logic for potential dynamic updates could go here
-      // For now, we maintain the "Operational" state as it's a footer UI
-    }
-
-    // Initial check
-    checkStatus()
-  }
-})()
-</script>`}
-          ></Script>
-        </div>
-      </div>
     </div>
   )
 }

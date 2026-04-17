@@ -38,6 +38,7 @@
 .forgot-form .input { margin-bottom: 0.25rem; }
 
 /* reduce the vertical gap for the forgot form specifically (overrides .login-form gap) */
+
 .forgot-form.login-form { gap: 0.35rem; }
 .error {
   margin-top: 0.5rem;

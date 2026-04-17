@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Helmet } from 'react-helmet'
 
 import Navigation from '../components/navigation.jsx'
 import Footer from '../components/footer.jsx'
@@ -102,16 +101,10 @@ const Home = (props) => {
     fileInputRef.current.click();
   };
 
+  useEffect(() => { document.title = 'Document Vault'; }, []);
+
   return (
     <div className="home-container1">
-      <Helmet>
-        <title>Sweet Foolish Anteater</title>
-        <meta property="og:title" content="Sweet Foolish Anteater" />
-        <link
-          rel="canonical"
-          href="https://sweet-foolish-anteater-k244bc.teleporthq.app/"
-        />
-      </Helmet>
       <Navigation></Navigation>
       <section className="hero-upload-container">
         <div className="hero-upload-inner">

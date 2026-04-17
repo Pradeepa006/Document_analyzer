@@ -15,6 +15,7 @@ from app.services.embedding_service import EmbeddingService
 # Import LLMService and RAGPipeline lazily inside the lifespan to avoid import-time
 # failures if optional SDKs are missing or cause side-effects during module import.
 from app.api.routes import router
+from app.api.auth import auth_router
 
 # ─────────────────────────────────────────────
 # Logging configuration
@@ -163,6 +164,7 @@ A production-ready RAG (Retrieval-Augmented Generation) backend for intelligent 
     )
 
     # Register API routes
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
     app.include_router(router, prefix="/api/v1", tags=["Document Analyzer"])
 
     return app

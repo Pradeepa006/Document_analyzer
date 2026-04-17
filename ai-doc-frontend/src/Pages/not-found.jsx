@@ -1,15 +1,12 @@
-import React from 'react'
-
-import { Helmet } from 'react-helmet'
+import React, { useEffect } from 'react'
 
 import './not-found.css'
 
-const NotFound = (props) => {
+const NotFound = () => {
+  useEffect(() => { document.title = '404 - Not Found'; }, []);
+
   return (
     <div className="not-found-container1">
-      <Helmet>
-        <title>404 - Not Found</title>
-      </Helmet>
       <h3>OOPS! PAGE NOT FOUND</h3>
       <div className="not-found-container2">
         <h1 className="not-found-text2">404</h1>

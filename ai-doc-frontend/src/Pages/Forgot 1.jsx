@@ -1,16 +1,21 @@
 import { useState } from "react";
-import "./Forgot.css";
-import "./Login.css";
+import { useNavigate } from "react-router-dom";
+import "./Forgot 1.css";
+import "./Login 1.css";
 
 export default function Forgot() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
+    setMessage("");
     if (!email) {
       setError("Please enter your email.");
       return;
@@ -23,10 +28,24 @@ export default function Forgot() {
       setError("Passwords do not match.");
       return;
     }
-
-    // placeholder behaviour - in real app call API
-    alert(`Password reset for ${email} successful.`);
-    window.location.hash = "/";
+    const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+    setLoading(true);
+    fetch(`${base}/api/v1/auth/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, new_password: newPassword }),
+    })
+      .then(async (resp) => {
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok) {
+          setMessage("Password reset successful. You can now sign in.");
+          setTimeout(() => navigate("/login"), 2000);
+        } else {
+          setError(data.detail || data.msg || "Reset failed. Check your email.");
+        }
+      })
+      .catch(() => setError("Cannot reach backend. Is the server running?"))
+      .finally(() => setLoading(false));
   };
 
   return (
@@ -76,11 +95,12 @@ export default function Forgot() {
                 placeholder="Confirm password"
               />
 
-              {error && <div className="error">{error}</div>}
+              {message && <div className="alert success">{message}</div>}
+              {error && <div className="alert error">{error}</div>}
 
               <div className="forgot-actions">
-                <button type="submit" className="btn">Reset password</button>
-                <a href="#/" className="back-link">Back to login</a>
+                <button type="submit" className="btn" disabled={loading}>{loading ? "Resetting..." : "Reset password"}</button>
+                <a href="/login" className="back-link">Back to login</a>
               </div>
             </form>
           </div>

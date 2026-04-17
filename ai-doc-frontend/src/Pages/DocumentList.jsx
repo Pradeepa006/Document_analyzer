@@ -153,7 +153,7 @@ const handleRestore = (id) => {
 
           <button
             className="upload"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/app")}
           >
             <FaUpload /> Upload Document
           </button>
